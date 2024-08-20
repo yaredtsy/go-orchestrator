@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -47,8 +48,10 @@ type Task struct {
 	Name          string
 	State         State
 	Image         string
-	Memory        int
-	Disk          int
+	Memory        int64
+	Disk          int64
+	Cpu           float64
+	ContainerID   string
 	ExposedPorts  nat.PortSet
 	PortBindings  map[string]string
 	RestartPolicy string
@@ -75,6 +78,26 @@ type DockerResult struct {
 	Action      string
 	ContainerId string
 	Result      string
+}
+
+func NewConfig(t *Task) *Config {
+	return &Config{
+		Name:          t.Name,
+		ExposedPorts:  t.ExposedPorts,
+		Image:         t.Image,
+		Cpu:           t.Cpu,
+		Memory:        t.Memory,
+		Disk:          t.Disk,
+		RestartPolicy: t.RestartPolicy,
+	}
+}
+
+func NewDocker(c *Config) *Docker {
+	dc, _ := client.NewClientWithOpts(client.FromEnv)
+	return &Docker{
+		Client: dc,
+		Config: *c,
+	}
 }
 
 func (d *Docker) Run() DockerResult {
@@ -114,9 +137,9 @@ func (d *Docker) Run() DockerResult {
 		log.Printf("Error creating container using image %s: %v\n", d.Config.Name, err)
 		return DockerResult{Error: err}
 	}
-
+	fmt.Println("Container created")
 	err = d.Client.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
-
+	fmt.Println("Container created 2")
 	if err != nil {
 		log.Printf("Error starting container %s: %v\n", resp.ID, err)
 		return DockerResult{Error: err}
@@ -129,8 +152,14 @@ func (d *Docker) Run() DockerResult {
 		log.Printf("Error getting container logs %s: %v\n", resp.ID, err)
 		return DockerResult{Error: err}
 	}
+	fmt.Println("Container created 3")
+	go func() {
+		if _, err := stdcopy.StdCopy(os.Stdout, os.Stderr, out); err != nil {
+			log.Printf("Error copying output: %v", err)
+		}
+	}()
 
-	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+	fmt.Println("Container created 4")
 	return DockerResult{ContainerId: resp.ID, Action: "start", Result: "success", Error: nil}
 }
 
