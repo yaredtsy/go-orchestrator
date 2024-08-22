@@ -4,6 +4,9 @@ import (
 	"cube/task"
 	"cube/worker"
 	"fmt"
+	"log"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/docker/docker/client"
@@ -11,68 +14,33 @@ import (
 	"github.com/google/uuid"
 )
 
-// import (
-// 	"fmt"
-// 	"log"
-
-// 	"github.com/c9s/goprocinfo/linux"
-// )
-
-// func main() {
-// 	// Read CPU info from /proc/stat
-// 	stat, err := linux.ReadStat("/proc/stat")
-// 	if err != nil {
-// 		log.Fatalf("failed to read /proc/stat: %v", err)
-// 	}
-
-// 	for _, s := range stat.CPUStats {
-// 		fmt.Printf("CPU: %v, User: %v, System: %v, Idle: %v\n", s.Id, s.User, s.System, s.Idle)
-// 	}
-
-// 	// Read Memory info from /proc/meminfo
-// 	meminfo, err := linux.ReadMemInfo("/proc/meminfo")
-// 	if err != nil {
-// 		log.Fatalf("failed to read /proc/meminfo: %v", err)
-// 	}
-
-// 	fmt.Printf("MemTotal: %v, MemFree: %v, Buffers: %v, Cached: %v\n",
-// 		meminfo.MemTotal, meminfo.MemFree, meminfo.Buffers, meminfo.Cached)
-
-// }
-
 func main() {
-	db := make(map[uuid.UUID]*task.Task)
+	host := os.Getenv("CUBE_HOST")
+	port, _ := strconv.Atoi(os.Getenv("CUBE_PORT"))
+
+	fmt.Println("Starting Cube worker")
 	w := worker.Worker{
 		Queue: *queue.New(),
-		Db:    db,
+		Db:    make(map[uuid.UUID]*task.Task),
 	}
+	api := worker.Api{Address: host, Port: port, Worker: &w}
+	go runTasks(&w)
+	api.Start()
+}
 
-	t := task.Task{
-		ID:    uuid.New(),
-		Name:  "test-task-2",
-		State: task.Scheduled,
-		Image: "strm/helloworld-http",
-	}
+func runTasks(w *worker.Worker) {
+	for {
+		if w.Queue.Len() != 0 {
+			result := w.RunTask()
+			if result.Error != nil {
+				log.Printf("Error running task: %v\n", result.Error)
+			}
+		} else {
+			log.Printf("No tasks to process currently. \n")
 
-	fmt.Println("starting task")
-	w.AddTask(t)
-	result := w.RunTask()
-	if result.Error != nil {
-		panic(result.Error)
-	}
-
-	t.ContainerID = result.ContainerId
-
-	fmt.Printf("task %s is running in container %s\n", t.ID, t.ContainerID)
-	fmt.Println("Sleepy time")
-	time.Sleep(time.Second * 30)
-
-	fmt.Printf("stopping task %s\n", t.ID)
-	t.State = task.Completed
-	w.AddTask(t)
-	result = w.RunTask()
-	if result.Error != nil {
-		panic(result.Error)
+		}
+		log.Println("Sleeping for 5 seconds")
+		time.Sleep(10 * time.Second)
 	}
 }
 

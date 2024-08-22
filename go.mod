@@ -14,6 +14,7 @@ require (
 	github.com/containerd/containerd v1.5.6 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/go-units v0.4.0 // indirect
+	github.com/go-chi/chi/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
