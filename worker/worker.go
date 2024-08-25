@@ -16,10 +16,7 @@ type Worker struct {
 	Queue     queue.Queue
 	Db        map[uuid.UUID]*task.Task
 	TaskCount int
-}
-
-func (w *Worker) CollectStats() {
-	fmt.Println(("I will collect stats"))
+	Stats     *Stats
 }
 
 func (w *Worker) RunTask() task.DockerResult {
@@ -104,4 +101,28 @@ func (w *Worker) GetTasks() []task.Task {
 		tasks = append(tasks, *task)
 	}
 	return tasks
+}
+
+func (w *Worker) CollectStats() {
+	for {
+		log.Println("Collecting stats")
+		w.Stats = GetStats()
+		w.TaskCount = w.Stats.TaskCount
+		time.Sleep(15 * time.Second)
+	}
+}
+func (w *Worker) RunTasks() {
+	for {
+		if w.Queue.Len() != 0 {
+			result := w.RunTask()
+			if result.Error != nil {
+				log.Printf("Error running task: %v\n", result.Error)
+			}
+		} else {
+			log.Printf("No tasks to process currently. \n")
+
+		}
+		log.Println("Sleeping for 5 seconds")
+		time.Sleep(10 * time.Second)
+	}
 }

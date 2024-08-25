@@ -1,13 +1,12 @@
 package main
 
 import (
+	"cube/manager"
 	"cube/task"
 	"cube/worker"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/docker/docker/client"
 	"github.com/golang-collections/collections/queue"
@@ -15,33 +14,31 @@ import (
 )
 
 func main() {
-	host := os.Getenv("CUBE_HOST")
-	port, _ := strconv.Atoi(os.Getenv("CUBE_PORT"))
+	whost := os.Getenv("CUBE_HOST")
+	wport, _ := strconv.Atoi(os.Getenv("CUBE_PORT"))
+
+	mhost := os.Getenv("CUBE_MANAGER_HOST")
+	mport, _ := strconv.Atoi(os.Getenv("CUBE_MANAGER_PORT"))
 
 	fmt.Println("Starting Cube worker")
 	w := worker.Worker{
 		Queue: *queue.New(),
 		Db:    make(map[uuid.UUID]*task.Task),
 	}
-	api := worker.Api{Address: host, Port: port, Worker: &w}
-	go runTasks(&w)
-	api.Start()
-}
+	wapi := worker.Api{Address: whost, Port: wport, Worker: &w}
 
-func runTasks(w *worker.Worker) {
-	for {
-		if w.Queue.Len() != 0 {
-			result := w.RunTask()
-			if result.Error != nil {
-				log.Printf("Error running task: %v\n", result.Error)
-			}
-		} else {
-			log.Printf("No tasks to process currently. \n")
+	go w.RunTasks()
+	go w.CollectStats()
+	go wapi.Start()
 
-		}
-		log.Println("Sleeping for 5 seconds")
-		time.Sleep(10 * time.Second)
-	}
+	workers := []string{fmt.Sprintf("%s:%d", whost, wport)}
+	m := manager.New(workers)
+	mApi := manager.Api{Address: mhost, Port: mport, Manager: m}
+
+	go m.UpdateTasks()
+	go m.ProcessTasks()
+	mApi.Start()
+
 }
 
 func createContainer() (*task.Docker, *task.DockerResult) {

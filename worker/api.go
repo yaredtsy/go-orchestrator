@@ -76,13 +76,23 @@ func (a *Api) StopTaskHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Task %v stopped in container%v\n", tID, taskCopy.ContainerID)
 	w.WriteHeader(204)
 }
+
+func (a *Api) GetStatsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	json.NewEncoder(w).Encode(a.Worker.Stats)
+}
+
 func (a *Api) initRouter() {
 	a.Router = chi.NewRouter()
+	a.Router.Route("/stats", func(r chi.Router) {
+		r.Get("/", a.GetStatsHandler)
+	})
 	a.Router.Route("/task", func(r chi.Router) {
 		r.Post("/", a.StartTaskHandler)
 		r.Get("/", a.GetTaskHandler)
 		r.Route("/{taskID}", func(r chi.Router) {
-			r.Delete("/stop", a.StopTaskHandler)
+			r.Delete("/", a.StopTaskHandler)
 		})
 	})
 }
